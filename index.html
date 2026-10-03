@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>일본어 시험 마스터</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: sans-serif; background: #f4f7f6; color: #333; margin: 0; padding: 10px; }
+        h1 { font-size: 1.2rem; text-align: center; color: #2c3e50; margin: 5px 0 15px 0; }
+
+        .tab-nav { display: flex; gap: 4px; margin-bottom: 10px; }
+        .tab-nav button {
+            flex: 1; padding: 12px 0; background: #4A90E2; color: white;
+            font-weight: bold; font-size: 0.85rem; border: none; border-radius: 6px; cursor: pointer;
+        }
+        .tab-nav button.active { background: #2C3E50; }
+
+        .tab-content { display: none; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .tab-content.active { display: block; }
+
+        .card { border: 1px solid #e0e0e0; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .group-tag { background: #e1f5fe; color: #0288d1; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+
+        .star-btn { background: none; border: none; font-size: 1.5rem; color: #ccc; cursor: pointer; padding: 0 5px; }
+        .star-btn.starred { color: #f1c40f; }
+
+        .filter-box { background: #f8f9fa; padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 10px; font-size: 0.9rem; font-weight: bold; display: flex; align-items: center; justify-content: space-between; }
+
+        .canvas-container { width: 100%; display: flex; justify-content: center; margin: 10px 0; }
+        canvas { border: 2px dashed #999; background: #fff; border-radius: 8px; touch-action: none; }
+
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #4A90E2; color: white; font-weight: bold; font-size: 1rem; margin-top: 8px; }
+        .btn-sub { background: #7f8c8d; }
+        .btn-ans { background: #27ae60; }
+
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+        .grid-item {
+            background: #eef2f5; border: 1.5px solid #4A90E2; padding: 8px 1px;
+            text-align: center; font-weight: bold; border-radius: 5px; font-size: 0.75rem;
+            min-height: 48px; display: flex; align-items: center; justify-content: center;
+            word-break: break-all; line-height: 1.1;
+        }
+        .grid-item.active { background: #50E3C2; color: white; border-color: #2eacc1; }
+        .grid-item.hide { visibility: hidden; }
+    </style>
+</head>
+<body>
+
+    <h1>📚 일본어 시험 단어장</h1>
+
+    <div class="tab-nav">
+        <button id="btn-t1" class="active" onclick="goTab('t1')">📖 단어</button>
+        <button id="btn-t2" onclick="goTab('t2')">✍️ 쓰기</button>
+        <button id="btn-t3" onclick="goTab('t3')">❓ 퀴즈</button>
+        <button id="btn-t4" onclick="goTab('t4')">🎮 게임</button>
+    </div>
+
+    <!-- 1. 단어장 -->
+    <div id="t1" class="tab-content active">
+        <div class="filter-box">
+            <span><input type="checkbox" id="starOnly" onchange="renderWordList()"> <label for="starOnly">⭐ 헷갈리는 단어만 보기</label></span>
+            <span style="font-size:0.8rem; color:#666;">(총 <b id="wordCount">0</b>개)</span>
+        </div>
+        <div id="wordList"></div>
+    </div>
+
+    <!-- 2. 쓰기 -->
+    <div id="t2" class="tab-content">
+        <div class="filter-box">
+            <span><input type="checkbox" id="dictStarOnly" onchange="nextDict()"> <label for="dictStarOnly">⭐ 헷갈리는 단어만 출제</label></span>
+        </div>
+        <div id="qMeaning" style="font-size: 1.2rem; font-weight: bold; text-align: center; margin-bottom: 5px;"></div>
+        <div class="canvas-container">
+            <canvas id="paint" width="260" height="260"></canvas>
+        </div>
+        <button class="btn btn-sub" onclick="clearBoard()">지우기</button>
+        <button class="btn btn-ans" onclick="showAnswer()">정답 확인</button>
+        <div id="ansText" style="display:none; text-align:center; font-size:1.2rem; font-weight:bold; margin-top:10px; color:#2c3e50;"></div>
+        <button class="btn" onclick="nextDict()" style="background:#34495e; margin-top:15px;">다음 문제 ➔</button>
+    </div>
+
+    <!-- 3. 종합 퀴즈 -->
+    <div id="t3" class="tab-content">
+        <div class="filter-box">
+            <span><input type="checkbox" id="quizStarOnly" onchange="nextQuiz()"> <label for="quizStarOnly">⭐ 헷갈리는 단어만 출제</label></span>
+        </div>
+        <div id="quizQ" style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color:#2c3e50;"></div>
+        <div id="quizOpts"></div>
+        <button class="btn" onclick="nextQuiz()" style="background:#34495e; margin-top:15px;">다음 문제 ➔</button>
+    </div>
+
+    <!-- 4. 하드모드 짝짓기 게임 -->
+    <div id="t4" class="tab-content" style="text-align: center;">
+        <p>🔥 16쌍 (32카드) | 남은 시간: <b id="timer" style="color:red; font-size:1.3rem;">30</b>초</p>
+        <button class="btn" onclick="startGame()">게임 시작 / 다시하기</button>
+        <div class="grid" id="gameGrid"></div>
+    </div>
+
+    <script>
+        // 스프레드시트 단어 75개 완벽 탑재
+        const defaultWords = [
+            { id: 1, kanji: '言う', hira: 'いう', mean: '말하다(일상적)', group: '1류', starred: false },
+            { id: 2, kanji: '歌う', hira: 'うたう', mean: '노래하다', group: '1류', starred: false },
+            { id: 3, kanji: '使う', hira: 'つかう', mean: '사용하다', group: '1류', starred: false },
+            { id: 4, kanji: '笑う', hira: 'わらう', mean: '웃다', group: '1류', starred: false },
+            { id: 5, kanji: '合う', hira: 'あう', mean: '만나다', group: '1류', starred: false },
+            { id: 6, kanji: '付き合う', hira: 'つきあう', mean: '동행하다', group: '1류', starred: false },
+            { id: 7, kanji: '似合う', hira: 'にあう', mean: '어울리다', group: '1류', starred: false },
+            { id: 8, kanji: 'もらう', hira: 'もらう', mean: '받다(친근)', group: '1류', starred: false },
+            { id: 9, kanji: '払う', hira: 'はらう', mean: '계산하다', group: '1류', starred: false },
+            { id: 10, kanji: 'しまう', hira: 'しまう', mean: '끝내다', group: '1류', starred: false },
+            { id: 11, kanji: '書く', hira: 'かく', mean: '쓰다', group: '1류', starred: false },
+            { id: 12, kanji: '聞く', hira: 'きく', mean: '듣다', group: '1류', starred: false },
+            { id: 13, kanji: '行く', hira: 'いく', mean: '가다', group: '1류', starred: false },
+            { id: 14, kanji: '咲く', hira: 'さく', mean: '피다', group: '1류', starred: false },
+            { id: 15, kanji: 'いただく', hira: 'いただく', mean: '받다(정중)', group: '1류', starred: false },
+            { id: 16, kanji: '泳ぐ', hira: 'およぐ', mean: '수영하다', group: '1류', starred: false },
+            { id: 17, kanji: '話す', hira: 'はなす', mean: '이야기하다(공식적)', group: '1류', starred: false },
+            { id: 18, kanji: '押す', hira: 'おす', mean: '밀다, 누르다', group: '1류', starred: false },
+            { id: 19, kanji: 'こぼす', hira: 'こぼす', mean: '흘리다', group: '1류', starred: false },
+            { id: 20, kanji: '待つ', hira: 'まつ', mean: '기다리다', group: '1류', starred: false },
+            { id: 21, kanji: '持つ', hira: 'もつ', mean: '들다', group: '1류', starred: false },
+            { id: 22, kanji: '死ぬ', hira: 'しぬ', mean: '죽다', group: '1류', starred: false },
+            { id: 23, kanji: '遊ぶ', hira: 'あそぶ', mean: '놀다', group: '1류', starred: false },
+            { id: 24, kanji: '飛ぶ', hira: 'とぶ', mean: '날다', group: '1류', starred: false },
+            { id: 25, kanji: '読む', hira: 'よむ', mean: '읽다', group: '1류', starred: false },
+            { id: 26, kanji: '飲む', hira: 'のむ', mean: '마시다', group: '1류', starred: false },
+            { id: 27, kanji: '休む', hira: 'やすむ', mean: '쉬다', group: '1류', starred: false },
+            { id: 28, kanji: '込む', hira: 'こむ', mean: '혼잡하다', group: '1류', starred: false },
+            { id: 29, kanji: '楽しむ', hira: 'たのしむ', mean: '즐기다', group: '1류', starred: false },
+            { id: 30, kanji: 'なる', hira: 'なる', mean: '되다', group: '1류', starred: false },
+            { id: 31, kanji: '乗る', hira: 'のる', mean: '타다', group: '1류', starred: false },
+            { id: 32, kanji: '作る', hira: 'つくる', mean: '만들다', group: '1류', starred: false },
+            { id: 33, kanji: '売る', hira: 'うる', mean: '팔다', group: '1류', starred: false },
+            { id: 34, kanji: '取る', hira: 'とる', mean: '집다', group: '1류', starred: false },
+            { id: 35, kanji: '守る', hira: 'まもる', mean: '지키다', group: '1류', starred: false },
+            { id: 36, kanji: '分かる', hira: 'わかる', mean: '알다', group: '1류', starred: false },
+            { id: 37, kanji: '上がる', hira: 'あがる', mean: '오르다', group: '1류', starred: false },
+            { id: 38, kanji: '掛る', hira: 'かかる', mean: '걸리다', group: '1류', starred: false },
+            { id: 39, kanji: '頑張る', hira: 'がんばる', mean: '노력하다', group: '1류', starred: false },
+            { id: 40, kanji: 'ある', hira: 'ある', mean: '있다', group: '1류', starred: false },
+            { id: 41, kanji: '止まる', hira: 'とまる', mean: '멈추다', group: '1류', starred: false },
+            { id: 42, kanji: '降る', hira: 'ふる', mean: '내리다(눈,비)', group: '1류', starred: false },
+            { id: 43, kanji: '戻る', hira: 'もどる', mean: '되돌아오다', group: '1류', starred: false },
+            { id: 44, kanji: '踊る', hira: 'おどる', mean: '춤추다', group: '1류', starred: false },
+            { id: 45, kanji: '残る', hira: 'のこる', mean: '남다', group: '1류', starred: false },
+            { id: 46, kanji: '起こる', hira: 'おこる', mean: '발생하다', group: '1류', starred: false },
+            { id: 47, kanji: '知る', hira: 'しる', mean: '알다', group: '1류(예외)', starred: false },
+            { id: 48, kanji: '入る', hira: 'はいる', mean: '들어가다', group: '1류(예외)', starred: false },
+            { id: 49, kanji: '切る', hira: 'きる', mean: '자르다', group: '1류(예외)', starred: false },
+            { id: 50, kanji: '帰る', hira: 'かえる', mean: '돌아가다', group: '1류(예외)', starred: false },
+            { id: 51, kanji: '走る', hira: 'はしる', mean: '달리다', group: '1류(예외)', starred: false },
+            { id: 52, kanji: '要る', hira: 'いる', mean: '필요하다', group: '1류(예외)', starred: false },
+            { id: 53, kanji: '着る', hira: 'きる', mean: '입다', group: '2류', starred: false },
+            { id: 54, kanji: '見る', hira: 'みる', mean: '보다', group: '2류', starred: false },
+            { id: 55, kanji: '起きる', hira: 'おきる', mean: '일어나다', group: '2류', starred: false },
+            { id: 56, kanji: '降りる', hira: 'おりる', mean: '내리다(대중교통)', group: '2류', starred: false },
+            { id: 57, kanji: 'いる', hira: 'いる', mean: '있다', group: '2류', starred: false },
+            { id: 58, kanji: '落ちる', hira: 'おちる', mean: '떨어지다', group: '2류', starred: false },
+            { id: 59, kanji: 'できる', hira: 'できる', mean: '할 수 있다', group: '2류', starred: false },
+            { id: 60, kanji: '食べる', hira: 'たべる', mean: '먹다', group: '2류', starred: false },
+            { id: 61, kanji: '教える', hira: 'おしえる', mean: '가르치다', group: '2류', starred: false },
+            { id: 62, kanji: '出る', hira: 'でる', mean: '나가다', group: '2류', starred: false },
+            { id: 63, kanji: 'つける', hira: 'つける', mean: '켜다', group: '2류', starred: false },
+            { id: 64, kanji: '開ける', hira: 'あける', mean: '열다', group: '2류', starred: false },
+            { id: 65, kanji: '覚える', hira: 'おぼえる', mean: '기억하다', group: '2류', starred: false },
+            { id: 66, kanji: '見える', hira: 'みえる', mean: '보이다', group: '2류', starred: false },
+            { id: 67, kanji: '聞こえる', hira: 'きこえる', mean: '들리다', group: '2류', starred: false },
+            { id: 68, kanji: '晴れる', hira: 'はれる', mean: '맑다', group: '2류', starred: false },
+            { id: 69, kanji: '壊れる', hira: 'こわれる', mean: '망가지다', group: '2류', starred: false },
+            { id: 70, kanji: '濡れる', hira: 'ぬれる', mean: '젖다', group: '2류', starred: false },
+            { id: 71, kanji: '忘れる', hira: 'わすれる', mean: '잊다', group: '2류', starred: false },
+            { id: 72, kanji: 'しゃべる', hira: 'しゃべる', mean: '재잘거리다', group: '2류', starred: false },
+            { id: 73, kanji: 'くれる', hira: 'くれる', mean: '주다', group: '2류', starred: false },
+            { id: 74, kanji: '来る', hira: 'くる', mean: '오다', group: '3류', starred: false },
+            { id: 75, kanji: 'する', hira: 'する', mean: '하다', group: '3류', starred: false }
+        ];
+
+        let words = JSON.parse(localStorage.getItem('jp_all_75_words')) || defaultWords;
+
+        function saveWords() {
+            localStorage.setItem('jp_all_75_words', JSON.stringify(words));
+        }
+
+        let cv, ctx, drawing = false, curDict = null, curQuiz = null, timer, left = 30, selected = [];
+
+        function initApp() {
+            renderWordList();
+
+            cv = document.getElementById('paint');
+            if (cv) {
+                ctx = cv.getContext('2d');
+                ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#2c3e50';
+
+                cv.addEventListener('touchstart', startDraw, {passive: false});
+                cv.addEventListener('touchmove', moveDraw, {passive: false});
+                cv.addEventListener('touchend', stopDraw);
+                cv.addEventListener('mousedown', startDraw);
+                cv.addEventListener('mousemove', moveDraw);
+                cv.addEventListener('mouseup', stopDraw);
+            }
+
+            nextDict();
+            nextQuiz();
+        }
+
+        function renderWordList() {
+            const listEl = document.getElementById('wordList');
+            const countEl = document.getElementById('wordCount');
+            if (!listEl) return;
+            const starOnly = document.getElementById('starOnly').checked;
+            listEl.innerHTML = '';
+
+            const filtered = starOnly ? words.filter(w => w.starred) : words;
+            if (countEl) countEl.innerText = filtered.length;
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">⭐ 마크 표시된 단어가 없습니다.</div>';
+                return;
+            }
+
+            filtered.forEach(w => {
+                listEl.innerHTML += `<div class="card">
+                    <div><b>${w.kanji}</b> (${w.hira}) <span class="group-tag">${w.group}</span><div>${w.mean}</div></div>
+                    <button class="star-btn ${w.starred ? 'starred' : ''}" onclick="toggleStar(${w.id})">★</button>
+                </div>`;
+            });
+        }
+
+        function toggleStar(id) {
+            const w = words.find(x => x.id === id);
+            if (w) {
+                w.starred = !w.starred;
+                saveWords();
+                renderWordList();
+            }
+        }
+
+        function goTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+            document.querySelectorAll('.tab-nav button').forEach(e => e.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('btn-' + tabId).classList.add('active');
+        }
+
+        function getPos(e) {
+            const rect = cv.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function startDraw(e) { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+        function moveDraw(e) { e.preventDefault(); if(!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+        function stopDraw() { drawing = false; }
+
+        function clearBoard() { if(ctx) ctx.clearRect(0, 0, cv.width, cv.height); document.getElementById('ansText').style.display = 'none'; }
+        function showAnswer() { const a = document.getElementById('ansText'); a.style.display = a.style.display === 'none' ? 'block' : 'none'; }
+
+        function nextDict() {
+            const starOnly = document.getElementById('dictStarOnly') ? document.getElementById('dictStarOnly').checked : false;
+            const pool = starOnly ? words.filter(w => w.starred) : words;
+
+            if (pool.length === 0) {
+                alert('⭐ 마크 표시한 단어가 없습니다!');
+                document.getElementById('dictStarOnly').checked = false;
+                nextDict();
+                return;
+            }
+
+            curDict = pool[Math.floor(Math.random() * pool.length)];
+            const qEl = document.getElementById('qMeaning');
+            if(qEl) qEl.innerText = `뜻: ${curDict.mean}`;
+            clearBoard();
+            const aEl = document.getElementById('ansText');
+            if(aEl) aEl.innerText = `정답: ${curDict.kanji} (${curDict.hira})`;
+        }
+
+        function nextQuiz() {
+            const starOnly = document.getElementById('quizStarOnly') ? document.getElementById('quizStarOnly').checked : false;
+            const pool = starOnly ? words.filter(w => w.starred) : words;
+
+            if (pool.length === 0) {
+                alert('⭐ 마크 표시한 단어가 없습니다!');
+                document.getElementById('quizStarOnly').checked = false;
+                nextQuiz();
+                return;
+            }
+
+            curQuiz = pool[Math.floor(Math.random() * pool.length)];
+            const qType = Math.floor(Math.random() * 3);
+            const qEl = document.getElementById('quizQ');
+            const opts = document.getElementById('quizOpts');
+            opts.innerHTML = '';
+
+            let targetAns = '';
+            let choices = [];
+
+            if (qType === 0) {
+                qEl.innerText = `[뜻 맞추기]\n${curQuiz.kanji} (${curQuiz.hira})`;
+                targetAns = curQuiz.mean;
+                choices.push(curQuiz.mean);
+                while(choices.length < Math.min(4, words.length)) {
+                    let rand = words[Math.floor(Math.random() * words.length)].mean;
+                    if(!choices.includes(rand)) choices.push(rand);
+                }
+            } else if (qType === 1) {
+                qEl.innerText = `[일본어 맞추기]\n뜻: ${curQuiz.mean}`;
+                targetAns = curQuiz.kanji;
+                choices.push(curQuiz.kanji);
+                while(choices.length < Math.min(4, words.length)) {
+                    let rand = words[Math.floor(Math.random() * words.length)].kanji;
+                    if(!choices.includes(rand)) choices.push(rand);
+                }
+            } else {
+                qEl.innerText = `[동사 그룹 맞추기]\n${curQuiz.kanji} (${curQuiz.hira})`;
+                targetAns = curQuiz.group;
+                choices = ['1류', '1류(예외)', '2류', '3류'];
+            }
+
+            if (qType !== 2) choices.sort(() => Math.random() - 0.5);
+
+            choices.forEach(c => {
+                const b = document.createElement('button');
+                b.className = 'btn';
+                b.style.margin = '4px 0';
+                b.innerText = c;
+                b.onclick = function() {
+                    alert(c === targetAns ? '⭕ 정답입니다!' : `❌ 오답! 정답은: ${targetAns}`);
+                    nextQuiz();
+                };
+                opts.appendChild(b);
+            });
+        }
+
+        function startGame() {
+            clearInterval(timer); 
+            left = 30; 
+            selected = [];
+            document.getElementById('timer').innerText = left;
+            const grid = document.getElementById('gameGrid'); 
+            grid.innerHTML = '';
+            
+            let sub = [...words].sort(() => Math.random() - 0.5).slice(0, 16);
+            let items = [];
+            sub.forEach(w => { 
+                items.push({id: w.kanji, txt: w.kanji}); 
+                items.push({id: w.kanji, txt: w.mean}); 
+            });
+            items.sort(() => Math.random() - 0.5);
+
+            items.forEach(it => {
+                const div = document.createElement('div');
+                div.className = 'grid-item';
+                div.innerText = it.txt;
+                div.onclick = function() {
+                    if(div.classList.contains('hide') || div.classList.contains('active')) return;
+                    div.classList.add('active');
+                    selected.push({el: div, id: it.id});
+
+                    if(selected.length === 2) {
+                        if(selected[0].id === selected[1].id) {
+                            selected[0].el.classList.add('hide');
+                            selected[1].el.classList.add('hide');
+                        }
+                        setTimeout(() => {
+                            selected.forEach(s => s.el.classList.remove('active'));
+                            selected = [];
+                            const remaining = document.querySelectorAll('.grid-item:not(.hide)');
+                            if(remaining.length === 0) {
+                                clearInterval(timer);
+                                alert('🎉 16쌍 올클리어 성공!');
+                            }
+                        }, 200);
+                    }
+                };
+                grid.appendChild(div);
+            });
+
+            timer = setInterval(() => {
+                left--; 
+                document.getElementById('timer').innerText = left;
+                if(left <= 0) { 
+                    clearInterval(timer); 
+                    alert('⏰ 30초 시간 종료! 다시 도전해보세요!'); 
+                }
+            }, 1000);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    </script>
+</body>
+</html>
